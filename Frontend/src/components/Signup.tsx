@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, GithubAuthProvider, FacebookAuthProvider } from 'firebase/auth';
 import { auth } from '../firebase';
-import {  useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 // Define props interface
 interface SignupProps {
