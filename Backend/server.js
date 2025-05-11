@@ -1,22 +1,28 @@
 require('dotenv').config();
 const express = require('express');
+const connectDB = require('./db');
 const axios = require('axios');
 const cors = require('cors');
+const mongoose = require('mongoose');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- /api/extract: as before ---
+console.log("MongoDB URI from .env:", process.env.MONGODB_URI); 
+
+// --- /api/extract: Extract entities, topics, and words ---
 app.post('/api/extract', async (req, res) => {
   console.log('📥 Received request at /api/extract');
   const { text } = req.body;
+
   if (!text || !text.trim()) {
     console.warn('⚠️ No text provided');
     return res.status(400).json({ error: 'No text provided' });
   }
 
   console.log('📝 Extracting text:', text.slice(0, 100), '...');
+
   try {
     const params = new URLSearchParams();
     params.append('extractors', 'entities,topics,words');
@@ -45,7 +51,6 @@ app.post('/api/extract', async (req, res) => {
     const entityNames = entities.map(e => e.matchedText);
     const topicNames = topics.map(t => t.label);
 
-    // dedupe
     const combined = [...new Set([ ...words, ...entityNames, ...topicNames ])];
     console.log('🧹 Final unique list:', combined.slice(0,10), '...');
 
@@ -56,16 +61,18 @@ app.post('/api/extract', async (req, res) => {
   }
 });
 
-// --- NEW /api/define: fetch definitions ---
+// --- /api/define: Fetch definitions for each word ---
 app.post('/api/define', async (req, res) => {
   console.log('📥 Received request at /api/define');
   const { words } = req.body;
+
   if (!Array.isArray(words) || words.length === 0) {
     console.warn('⚠️ No words provided');
     return res.status(400).json({ error: 'No words provided' });
   }
 
   const results = [];
+
   for (const word of words) {
     try {
       console.log(`🔍 Fetching definition for "${word}"`);
@@ -82,5 +89,23 @@ app.post('/api/define', async (req, res) => {
   res.json({ definitions: results });
 });
 
-const PORT = process.env.PORT || 5000;
+// --- /api/check-db: Check DB Connection ---
+app.get('/api/check-db', async (req, res) => {
+  try {
+    const db = mongoose.connection;
+    const admin = db.db.admin();
+    const status = await admin.ping();
+    res.json({ status: 'success', message: 'Database is connected', ping: status });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Database connection failed', error: err.message });
+  }
+});
+
+console.log('📦 MongoDB URI:', process.env.MONGODB_URI);
+
+// Connect to the database
+connectDB();
+
+// Start server
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`▶️ Server listening on http://localhost:${PORT}`));
